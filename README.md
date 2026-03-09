@@ -2,8 +2,8 @@
 
 A modular, plug-and-play structured logging library in Go featuring leveled logging, JSON output, caller tracing, and extensible output sinks.
 
-[![Tests](https://img.shields.io/badge/tests-27%20passing-brightgreen)]()
-[![Coverage](https://img.shields.io/badge/coverage-88%25-green)]()
+[![Tests](https://img.shields.io/badge/tests-36%20passing-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/coverage-85%25-green)]()
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.18-blue)]()
 
 ---
@@ -12,8 +12,10 @@ A modular, plug-and-play structured logging library in Go featuring leveled logg
 
 ✓ **Structured JSON logging** - Machine-readable log events  
 ✓ **Log levels** - DEBUG, INFO, WARN, ERROR, FATAL  
+✓ **Contextual logging** - Child loggers with inherited fields  
 ✓ **Caller tracing** - Optional file:line information  
 ✓ **Pluggable sinks** - Console, file, or custom outputs  
+✓ **File rotation** - Size-based log rotation  
 ✓ **Async logging** - Non-blocking high-throughput mode  
 ✓ **Flexible formatters** - JSON or custom formats  
 ✓ **Minimal dependencies** - Pure Go implementation  
@@ -169,6 +171,45 @@ log.Info("payment_processed",
 
 ---
 
+## Contextual Logging
+
+Create child loggers with inherited fields for consistent metadata:
+
+```go
+// Base logger
+baseLog := logger.New(logger.INFO)
+
+// Service-level logger with context
+serviceLog := baseLog.With("service", "auth", "environment", "production")
+
+// Request-level logger inherits service context
+requestLog := serviceLog.With("request_id", "abc123", "user_id", 42)
+
+requestLog.Info("processing_request")
+// Output includes: service, environment, request_id, user_id
+```
+
+**Output:**
+```json
+{
+  "timestamp": "2026-03-10T03:14:00+05:30",
+  "level": "INFO",
+  "message": "processing_request",
+  "service": "auth",
+  "environment": "production",
+  "request_id": "abc123",
+  "user_id": 42
+}
+```
+
+**Benefits:**
+- No need to repeat fields on every log call
+- Parent logger remains unchanged
+- Nested contexts work seamlessly
+- Call fields override context fields
+
+---
+
 ## Caller Tracing
 
 Enable file and line number tracking:
@@ -210,6 +251,48 @@ config := logger.Config{
 
 log := logger.NewWithConfig(config)
 defer log.Close()  // Closes all sinks
+```
+
+---
+
+## File Rotation
+
+Prevent log files from growing indefinitely with size-based rotation:
+
+```go
+import "github.com/MohaCodez/structured-logger/sink"
+
+// Create rotating file sink
+// MaxSize: 10 MB, MaxBackups: 5
+rotatingSink, err := sink.NewRotatingFileSink("app.log", 10, 5)
+if err != nil {
+    panic(err)
+}
+
+config := logger.Config{
+    Level:     logger.INFO,
+    Formatter: formatter.NewJSONFormatter(),
+    Sinks:     []logger.Sink{rotatingSink},
+}
+
+log := logger.NewWithConfig(config)
+defer log.Close()
+```
+
+**Rotation behavior:**
+- When `app.log` exceeds 10 MB, it's renamed to `app.log.1`
+- Previous backups shift: `app.log.1` → `app.log.2`, etc.
+- Keeps maximum of 5 backup files
+- Oldest backups are automatically deleted
+
+**Files created:**
+```
+app.log       (current log file)
+app.log.1     (most recent backup)
+app.log.2
+app.log.3
+app.log.4
+app.log.5     (oldest backup)
 ```
 
 ---
@@ -361,9 +444,12 @@ structured-logger/
 ├── sink/            # Output destinations
 │   ├── sink.go
 │   ├── console_sink.go
-│   └── file_sink.go
+│   ├── file_sink.go
+│   └── rotating_file_sink.go
 ├── async/           # Async worker
 │   └── worker.go
+├── benchmarks/      # Performance benchmarks
+│   └── logger_benchmark_test.go
 ├── examples/        # Usage examples
 └── README.md
 ```
@@ -382,7 +468,34 @@ With coverage:
 go test ./logger ./formatter ./sink ./async -cover
 ```
 
-**Test Results:** 27/27 tests passing, 88% average coverage
+**Test Results:** 36/36 tests passing, 85% average coverage
+
+---
+
+## Performance Benchmarks
+
+Benchmark results on Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz:
+
+| Operation | Time/op | Throughput |
+|-----------|---------|------------|
+| Sync Logging | 2,078 ns | 481K logs/sec |
+| Async Logging | 2,046 ns | 489K logs/sec |
+| Structured Fields | 4,607 ns | 217K logs/sec |
+| Contextual Logging | 3,185 ns | 314K logs/sec |
+| Level Filtering | 1.7 ns | 577M ops/sec |
+
+**Key Insights:**
+- Level filtering is essentially free (zero allocations)
+- Async mode provides ~1% better performance
+- Structured fields add ~2.5x overhead
+- Contextual logging adds ~53% overhead
+
+Run benchmarks:
+```bash
+go test ./benchmarks -bench=. -benchmem
+```
+
+See [BENCHMARKS.md](BENCHMARKS.md) for detailed analysis.
 
 ---
 
@@ -397,6 +510,7 @@ go test ./logger ./formatter ./sink ./async -cover
 | `Warn(msg, ...fields)` | Log warning message |
 | `Error(msg, ...fields)` | Log error message |
 | `Fatal(msg, ...fields)` | Log fatal and exit |
+| `With(...fields)` | Create child logger with context |
 | `Close()` | Close logger and sinks |
 
 ### Constructors
@@ -471,7 +585,9 @@ Benchmark results (1000 log entries):
 - [x] Async logging
 - [x] Configuration system
 - [x] Comprehensive tests
-- [ ] Log rotation
+- [x] Contextual logging (child loggers)
+- [x] Log rotation
+- [x] Performance benchmarks
 - [ ] Log sampling
 - [ ] Distributed tracing integration
 - [ ] Cloud logging sinks (AWS CloudWatch, GCP Logging)

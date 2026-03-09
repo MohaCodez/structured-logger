@@ -83,6 +83,29 @@ log.Info("user_login",
 )
 ```
 
+## Contextual Logging
+```go
+// Create child logger with inherited fields
+baseLog := logger.New(logger.INFO)
+serviceLog := baseLog.With("service", "auth", "environment", "production")
+requestLog := serviceLog.With("request_id", "abc123", "user_id", 42)
+
+requestLog.Info("processing")
+// Output includes all inherited fields
+```
+
+## File Rotation
+```go
+// Create rotating file sink (10 MB max, 5 backups)
+rotatingSink, _ := sink.NewRotatingFileSink("app.log", 10, 5)
+
+config := logger.Config{
+    Sinks: []logger.Sink{rotatingSink},
+}
+log := logger.NewWithConfig(config)
+defer log.Close()
+```
+
 ## Caller Tracing
 ```go
 config := logger.DefaultConfig()
@@ -190,12 +213,28 @@ log := logger.NewWithSinks(logger.DEBUG, formatter, []logger.Sink{sink})
 
 ## Performance
 
-| Mode | Throughput | Use Case |
-|------|------------|----------|
-| Sync | 68K logs/sec | Low volume |
-| Async | 100K logs/sec | High volume |
+| Operation | Time/op | Throughput |
+|-----------|---------|------------|
+| Sync Logging | 2,078 ns | 481K logs/sec |
+| Async Logging | 2,046 ns | 489K logs/sec |
+| Structured Fields | 4,607 ns | 217K logs/sec |
+| Contextual Logging | 3,185 ns | 314K logs/sec |
+| Level Filtering | 1.7 ns | 577M ops/sec |
+
+**Run benchmarks:**
+```bash
+go test ./benchmarks -bench=. -benchmem
+```
+
+See [BENCHMARKS.md](BENCHMARKS.md) for detailed analysis.
 
 ## Common Patterns
+
+**Contextual Logging:**
+```go
+serviceLog := baseLog.With("service", "api")
+requestLog := serviceLog.With("request_id", reqID)
+```
 
 **Request ID:**
 ```go

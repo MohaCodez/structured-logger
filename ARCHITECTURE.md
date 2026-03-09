@@ -250,12 +250,28 @@ log := logger.NewWithConfig(config)
 
 ---
 
+## Implemented Features (v1.0)
+
+1. **Contextual Logging**: Child loggers with inherited fields
+   - `With()` method creates immutable child loggers
+   - Fields merge at log time
+   - Nested contexts supported
+
+2. **Log Rotation**: Size-based automatic file rotation
+   - Configurable max size and backup count
+   - Thread-safe rotation
+   - Automatic backup shifting
+
+3. **Performance Benchmarks**: Comprehensive benchmark suite
+   - Measures all major operations
+   - Identifies performance characteristics
+   - Guides optimization decisions
+
 ## Future Enhancements
 
-1. **Log Rotation**: Automatic file rotation by size/time
-2. **Sampling**: Log only N% of entries at high volume
-3. **Batching**: Group multiple entries for efficient I/O
-4. **Compression**: Compress old log files
-5. **Remote Sinks**: HTTP, Kafka, CloudWatch, etc.
-6. **Context Integration**: Extract fields from context.Context
-7. **Structured Errors**: Better error type handling
+1. **Sampling**: Log only N% of entries at high volume
+2. **Batching**: Group multiple entries for efficient I/O
+3. **Compression**: Compress old log files
+4. **Remote Sinks**: HTTP, Kafka, CloudWatch, etc.
+5. **Context Integration**: Extract fields from context.Context
+6. **Structured Errors**: Better error type handling
