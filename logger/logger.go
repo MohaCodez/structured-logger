@@ -3,6 +3,8 @@ package logger
 import (
 	"fmt"
 	"os"
+
+	"github.com/MohaCodez/structured-logger/async"
 )
 
 type Formatter interface {
@@ -19,6 +21,7 @@ type Logger struct {
 	formatter    Formatter
 	sinks        []Sink
 	enableCaller bool
+	asyncWorker  *async.Worker
 }
 
 func New(level Level) *Logger {
@@ -27,6 +30,7 @@ func New(level Level) *Logger {
 		formatter:    &defaultFormatter{},
 		sinks:        []Sink{&defaultConsoleSink{}},
 		enableCaller: false,
+		asyncWorker:  nil,
 	}
 }
 
@@ -36,6 +40,7 @@ func NewWithFormatter(level Level, formatter Formatter) *Logger {
 		formatter:    formatter,
 		sinks:        []Sink{&defaultConsoleSink{}},
 		enableCaller: false,
+		asyncWorker:  nil,
 	}
 }
 
@@ -45,6 +50,7 @@ func NewWithSinks(level Level, formatter Formatter, sinks []Sink) *Logger {
 		formatter:    formatter,
 		sinks:        sinks,
 		enableCaller: false,
+		asyncWorker:  nil,
 	}
 }
 
@@ -54,10 +60,24 @@ func NewWithCaller(level Level, formatter Formatter, sinks []Sink, enableCaller 
 		formatter:    formatter,
 		sinks:        sinks,
 		enableCaller: enableCaller,
+		asyncWorker:  nil,
+	}
+}
+
+func NewAsync(level Level, formatter Formatter, sinks []Sink, enableCaller bool, bufferSize int) *Logger {
+	return &Logger{
+		level:        level,
+		formatter:    formatter,
+		sinks:        sinks,
+		enableCaller: enableCaller,
+		asyncWorker:  async.NewWorker(bufferSize),
 	}
 }
 
 func (l *Logger) Close() error {
+	if l.asyncWorker != nil {
+		l.asyncWorker.Stop()
+	}
 	for _, sink := range l.sinks {
 		if err := sink.Close(); err != nil {
 			return err
@@ -97,9 +117,19 @@ func (l *Logger) log(level Level, message string, keyValues ...interface{}) {
 		return
 	}
 
-	for _, sink := range l.sinks {
-		if err := sink.Write(data); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to write to sink: %v\n", err)
+	if l.asyncWorker != nil {
+		// Async mode: enqueue for background processing
+		sinksCopy := make([]async.Sink, len(l.sinks))
+		for i, s := range l.sinks {
+			sinksCopy[i] = s
+		}
+		l.asyncWorker.Enqueue(data, sinksCopy)
+	} else {
+		// Sync mode: write immediately
+		for _, sink := range l.sinks {
+			if err := sink.Write(data); err != nil {
+				fmt.Fprintf(os.Stderr, "failed to write to sink: %v\n", err)
+			}
 		}
 	}
 }
