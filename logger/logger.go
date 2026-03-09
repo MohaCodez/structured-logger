@@ -17,60 +17,66 @@ type Sink interface {
 }
 
 type Logger struct {
-	level        Level
-	formatter    Formatter
-	sinks        []Sink
-	enableCaller bool
-	asyncWorker  *async.Worker
+	level         Level
+	formatter     Formatter
+	sinks         []Sink
+	enableCaller  bool
+	asyncWorker   *async.Worker
+	contextFields map[string]interface{}
 }
 
 func New(level Level) *Logger {
 	return &Logger{
-		level:        level,
-		formatter:    &defaultFormatter{},
-		sinks:        []Sink{&defaultConsoleSink{}},
-		enableCaller: false,
-		asyncWorker:  nil,
+		level:         level,
+		formatter:     &defaultFormatter{},
+		sinks:         []Sink{&defaultConsoleSink{}},
+		enableCaller:  false,
+		asyncWorker:   nil,
+		contextFields: make(map[string]interface{}),
 	}
 }
 
 func NewWithFormatter(level Level, formatter Formatter) *Logger {
 	return &Logger{
-		level:        level,
-		formatter:    formatter,
-		sinks:        []Sink{&defaultConsoleSink{}},
-		enableCaller: false,
-		asyncWorker:  nil,
+		level:         level,
+		formatter:     formatter,
+		sinks:         []Sink{&defaultConsoleSink{}},
+		enableCaller:  false,
+		asyncWorker:   nil,
+		contextFields: make(map[string]interface{}),
 	}
 }
 
 func NewWithSinks(level Level, formatter Formatter, sinks []Sink) *Logger {
 	return &Logger{
-		level:        level,
-		formatter:    formatter,
-		sinks:        sinks,
-		enableCaller: false,
-		asyncWorker:  nil,
+		level:         level,
+		formatter:     formatter,
+		sinks:         sinks,
+		enableCaller:  false,
+		asyncWorker:   nil,
+		contextFields: make(map[string]interface{}),
 	}
 }
 
 func NewWithCaller(level Level, formatter Formatter, sinks []Sink, enableCaller bool) *Logger {
 	return &Logger{
-		level:        level,
-		formatter:    formatter,
-		sinks:        sinks,
-		enableCaller: enableCaller,
-		asyncWorker:  nil,
+		level:         level,
+		formatter:     formatter,
+		sinks:         sinks,
+		enableCaller:  enableCaller,
+		asyncWorker:   nil,
+		contextFields: make(map[string]interface{}),
 	}
 }
 
 func NewAsync(level Level, formatter Formatter, sinks []Sink, enableCaller bool, bufferSize int) *Logger {
 	return &Logger{
-		level:        level,
-		formatter:    formatter,
-		sinks:        sinks,
-		enableCaller: enableCaller,
-		asyncWorker:  async.NewWorker(bufferSize),
+		level:         level,
+		formatter:     formatter,
+		sinks:         sinks,
+		enableCaller:  enableCaller,
+		asyncWorker:   async.NewWorker(bufferSize),
+		contextFields: make(map[string]interface{}),
 	}
 }
 
@@ -84,6 +90,31 @@ func (l *Logger) Close() error {
 		}
 	}
 	return nil
+}
+
+// With creates a child logger with additional context fields.
+// The parent logger remains unchanged.
+func (l *Logger) With(keyValues ...interface{}) *Logger {
+	fields := parseFields(keyValues)
+	
+	// Create new context fields map with parent fields + new fields
+	newContextFields := make(map[string]interface{}, len(l.contextFields)+len(fields))
+	for k, v := range l.contextFields {
+		newContextFields[k] = v
+	}
+	for k, v := range fields {
+		newContextFields[k] = v
+	}
+	
+	// Return new logger with merged context
+	return &Logger{
+		level:         l.level,
+		formatter:     l.formatter,
+		sinks:         l.sinks,
+		enableCaller:  l.enableCaller,
+		asyncWorker:   l.asyncWorker,
+		contextFields: newContextFields,
+	}
 }
 
 type defaultFormatter struct{}
@@ -110,7 +141,17 @@ func (l *Logger) log(level Level, message string, keyValues ...interface{}) {
 	}
 
 	fields := parseFields(keyValues)
-	entry := newEntry(level, message, fields, l.enableCaller)
+	
+	// Merge context fields with call fields (call fields override)
+	mergedFields := make(map[string]interface{}, len(l.contextFields)+len(fields))
+	for k, v := range l.contextFields {
+		mergedFields[k] = v
+	}
+	for k, v := range fields {
+		mergedFields[k] = v
+	}
+	
+	entry := newEntry(level, message, mergedFields, l.enableCaller)
 	data, err := l.formatter.Format(entry)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to format log entry: %v\n", err)

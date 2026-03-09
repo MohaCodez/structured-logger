@@ -24,11 +24,12 @@ func DefaultConfig() Config {
 
 func NewWithConfig(config Config) *Logger {
 	logger := &Logger{
-		level:        config.Level,
-		formatter:    config.Formatter,
-		sinks:        config.Sinks,
-		enableCaller: config.EnableCaller,
-		asyncWorker:  nil,
+		level:         config.Level,
+		formatter:     config.Formatter,
+		sinks:         config.Sinks,
+		enableCaller:  config.EnableCaller,
+		asyncWorker:   nil,
+		contextFields: make(map[string]interface{}),
 	}
 
 	if config.Async {

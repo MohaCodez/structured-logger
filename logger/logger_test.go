@@ -2,6 +2,7 @@ package logger
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -105,6 +106,18 @@ func (f *jsonFormatterMock) Format(entry *Entry) ([]byte, error) {
 	if entry.Caller != "" {
 		result += `,"caller":"` + entry.Caller + `"`
 	}
+	// Add fields
+	for k, v := range entry.Fields {
+		result += fmt.Sprintf(`,"%s":`, k)
+		switch val := v.(type) {
+		case string:
+			result += fmt.Sprintf(`"%s"`, val)
+		case int:
+			result += fmt.Sprintf(`%d`, val)
+		default:
+			result += fmt.Sprintf(`"%v"`, val)
+		}
+	}
 	result += `}`
 	return []byte(result), nil
 }
@@ -116,5 +129,100 @@ func TestLoggerClose(t *testing.T) {
 	err := log.Close()
 	if err != nil {
 		t.Errorf("Close() returned error: %v", err)
+	}
+}
+
+func TestLoggerWith(t *testing.T) {
+	mock := &mockSink{}
+	baseLog := NewWithSinks(INFO, &jsonFormatterMock{}, []Sink{mock})
+
+	// Create child logger with context fields
+	childLog := baseLog.With("request_id", "abc123", "user_id", 42)
+
+	childLog.Info("test_message")
+
+	if len(mock.logs) != 1 {
+		t.Fatalf("expected 1 log, got %d", len(mock.logs))
+	}
+
+	log := mock.logs[0]
+	if !strings.Contains(log, "request_id") || !strings.Contains(log, "abc123") {
+		t.Errorf("expected request_id in log, got: %s", log)
+	}
+	if !strings.Contains(log, "user_id") {
+		t.Errorf("expected user_id in log, got: %s", log)
+	}
+}
+
+func TestLoggerWithParentUnchanged(t *testing.T) {
+	mock := &mockSink{}
+	baseLog := NewWithSinks(INFO, &jsonFormatterMock{}, []Sink{mock})
+
+	// Create child logger
+	childLog := baseLog.With("request_id", "abc123")
+
+	// Log from parent - should not have request_id
+	baseLog.Info("parent_message")
+
+	if len(mock.logs) != 1 {
+		t.Fatalf("expected 1 log, got %d", len(mock.logs))
+	}
+
+	if strings.Contains(mock.logs[0], "request_id") {
+		t.Errorf("parent logger should not have child context fields")
+	}
+
+	// Log from child - should have request_id
+	childLog.Info("child_message")
+
+	if len(mock.logs) != 2 {
+		t.Fatalf("expected 2 logs, got %d", len(mock.logs))
+	}
+
+	if !strings.Contains(mock.logs[1], "request_id") {
+		t.Errorf("child logger should have context fields")
+	}
+}
+
+func TestLoggerWithNested(t *testing.T) {
+	mock := &mockSink{}
+	baseLog := NewWithSinks(INFO, &jsonFormatterMock{}, []Sink{mock})
+
+	// Create nested child loggers
+	serviceLog := baseLog.With("service", "auth")
+	requestLog := serviceLog.With("request_id", "123")
+
+	requestLog.Info("test")
+
+	if len(mock.logs) != 1 {
+		t.Fatalf("expected 1 log, got %d", len(mock.logs))
+	}
+
+	log := mock.logs[0]
+	if !strings.Contains(log, "service") || !strings.Contains(log, "auth") {
+		t.Errorf("expected service field from parent, got: %s", log)
+	}
+	if !strings.Contains(log, "request_id") || !strings.Contains(log, "123") {
+		t.Errorf("expected request_id field, got: %s", log)
+	}
+}
+
+func TestLoggerWithFieldOverride(t *testing.T) {
+	mock := &mockSink{}
+	baseLog := NewWithSinks(INFO, &jsonFormatterMock{}, []Sink{mock})
+
+	// Create child with context field
+	childLog := baseLog.With("key", "context_value")
+
+	// Log with same key - should override
+	childLog.Info("test", "key", "call_value")
+
+	if len(mock.logs) != 1 {
+		t.Fatalf("expected 1 log, got %d", len(mock.logs))
+	}
+
+	// Call value should override context value
+	if !strings.Contains(mock.logs[0], "call_value") {
+		t.Errorf("call fields should override context fields, got: %s", mock.logs[0])
 	}
 }
