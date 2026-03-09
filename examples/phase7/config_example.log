@@ -1,0 +1,7 @@
+{"buffer_size":200,"caller":"config.go:50","level":"INFO","message":"async_logger_started","mode":"asynchronous","timestamp":"2026-03-10T03:07:50+05:30"}
+{"caller":"config.go:56","item_id":0,"level":"INFO","message":"processing_item","status":"completed","timestamp":"2026-03-10T03:07:50+05:30"}
+{"caller":"config.go:56","item_id":1,"level":"INFO","message":"processing_item","status":"completed","timestamp":"2026-03-10T03:07:50+05:30"}
+{"caller":"config.go:56","item_id":2,"level":"INFO","message":"processing_item","status":"completed","timestamp":"2026-03-10T03:07:50+05:30"}
+{"caller":"config.go:56","item_id":3,"level":"INFO","message":"processing_item","status":"completed","timestamp":"2026-03-10T03:07:50+05:30"}
+{"caller":"config.go:56","item_id":4,"level":"INFO","message":"processing_item","status":"completed","timestamp":"2026-03-10T03:07:50+05:30"}
+{"caller":"config.go:62","level":"WARN","message":"high_load_detected","queue_size":150,"threshold":100,"timestamp":"2026-03-10T03:07:50+05:30"}
