@@ -1,0 +1,12 @@
+{"caller":"main.go:32","level":"DEBUG","message":"application_initializing","timestamp":"2026-03-10T03:17:23+05:30"}
+{"caller":"main.go:33","environment":"production","level":"INFO","message":"application_started","timestamp":"2026-03-10T03:17:23+05:30","version":"1.0.0"}
+{"caller":"main.go:36","host":"0.0.0.0","level":"INFO","max_connections":1000,"message":"server_configuration","port":8080,"ssl_enabled":true,"timeout_seconds":30.5,"timestamp":"2026-03-10T03:17:23+05:30"}
+{"caller":"main.go:92","client_ip":"192.168.1.100","level":"INFO","message":"request_received","method":"POST","path":"/api/users","request_id":1,"timestamp":"2026-03-10T03:17:23+05:30"}
+{"caller":"main.go:111","level":"INFO","message":"request_completed","request_id":1,"response_time_ms":45,"status_code":200,"timestamp":"2026-03-10T03:17:23+05:30"}
+{"caller":"main.go:92","client_ip":"192.168.1.100","level":"INFO","message":"request_received","method":"POST","path":"/api/users","request_id":2,"timestamp":"2026-03-10T03:17:23+05:30"}
+{"caller":"main.go:103","level":"WARN","limit":100,"message":"rate_limit_warning","request_id":2,"requests_per_minute":120,"timestamp":"2026-03-10T03:17:23+05:30","user_id":102}
+{"caller":"main.go:111","level":"INFO","message":"request_completed","request_id":2,"response_time_ms":45,"status_code":200,"timestamp":"2026-03-10T03:17:23+05:30"}
+{"caller":"main.go:92","client_ip":"192.168.1.100","level":"INFO","message":"request_received","method":"POST","path":"/api/users","request_id":3,"timestamp":"2026-03-10T03:17:23+05:30"}
+{"caller":"main.go:111","level":"INFO","message":"request_completed","request_id":3,"response_time_ms":45,"status_code":200,"timestamp":"2026-03-10T03:17:23+05:30"}
+{"caller":"main.go:50","current_mb":850,"level":"WARN","message":"memory_usage_high","percentage":85.5,"threshold_mb":800,"timestamp":"2026-03-10T03:17:23+05:30"}
+{"caller":"main.go:57","error":"connection timeout","host":"db.example.com","level":"ERROR","message":"database_connection_failed","port":5432,"retry_count":3,"timestamp":"2026-03-10T03:17:23+05:30"}

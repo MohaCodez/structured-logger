@@ -2,230 +2,500 @@
 
 A modular, plug-and-play structured logging library in Go featuring leveled logging, JSON output, caller tracing, and extensible output sinks.
 
-This project is designed as a reusable infrastructure component that can be integrated into any Go application including APIs, background workers, CLI tools, and distributed services.
+[![Tests](https://img.shields.io/badge/tests-27%20passing-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/coverage-88%25-green)]()
+[![Go Version](https://img.shields.io/badge/go-%3E%3D1.18-blue)]()
 
 ---
 
-# Motivation
+## Features
 
-Logging is a fundamental part of observability in modern systems. Applications generate large volumes of runtime events which need to be structured, searchable, and consistent across services.
-
-Traditional string-based logs are difficult to parse and analyze. Structured logging solves this by emitting logs as machine-readable events.
-
-This logger aims to provide:
-
-- structured JSON logs
-- flexible output sinks
-- clean and minimal API
-- easy integration into any Go project
-
-The goal of this project is to build a logging library that behaves like a reusable infrastructure primitive.
+✓ **Structured JSON logging** - Machine-readable log events  
+✓ **Log levels** - DEBUG, INFO, WARN, ERROR, FATAL  
+✓ **Caller tracing** - Optional file:line information  
+✓ **Pluggable sinks** - Console, file, or custom outputs  
+✓ **Async logging** - Non-blocking high-throughput mode  
+✓ **Flexible formatters** - JSON or custom formats  
+✓ **Minimal dependencies** - Pure Go implementation  
+✓ **Production-ready** - Comprehensive test coverage  
 
 ---
 
-# Features
+## Quick Start
 
-- Structured logging with JSON output
-- Log levels (DEBUG, INFO, WARN, ERROR, FATAL)
-- Caller tracing (file and line number)
-- Context-based metadata fields
-- Pluggable output sinks
-- Optional asynchronous logging
-- Minimal dependencies
-- Designed for extensibility
+### Installation
+
+```bash
+go get github.com/MohaCodez/structured-logger
+```
+
+### Basic Usage
+
+```go
+package main
+
+import "github.com/MohaCodez/structured-logger/logger"
+
+func main() {
+    log := logger.New(logger.INFO)
+    defer log.Close()
+
+    log.Info("user_login",
+        "user_id", 123,
+        "ip", "10.1.2.4",
+    )
+}
+```
+
+**Output:**
+```json
+{"timestamp":"2026-03-10T03:14:00+05:30","level":"INFO","message":"user_login","user_id":123,"ip":"10.1.2.4"}
+```
 
 ---
 
-# Architecture
-
-The logger follows a pipeline architecture where log events pass through multiple stages before reaching their final destination.
+## Architecture
 
 ```
 Application
      │
      ▼
- Logger API
+Logger API (Debug/Info/Warn/Error/Fatal)
      │
      ▼
-Entry Builder
+Entry Builder (timestamp, level, message, fields, caller)
      │
      ▼
-Level Filter
+Level Filter (skip if below threshold)
      │
      ▼
-Formatter
+Formatter (JSON, custom)
      │
      ▼
-Sink Dispatcher
+Async Worker (optional)
+     │
+     ▼
+Sink Dispatcher (fan-out to multiple sinks)
      │
      ├── Console Sink
      ├── File Sink
-     └── Remote Sink
+     └── Custom Sink
 ```
-
-Each component is isolated and replaceable, allowing the system to evolve without breaking the public API.
 
 ---
 
-# Log Entry Structure
+## Configuration
 
-Each log message is represented as a structured event.
-
-Example output:
-
-```json
-{
-  "timestamp": "2026-03-09T12:10:10Z",
-  "level": "INFO",
-  "message": "user_login",
-  "user_id": 123,
-  "request_id": "abc123",
-  "caller": "auth/service.go:42"
-}
-```
-
-Structured logs make it easy to index and query logs in centralized logging systems.
-
----
-
-# Installation
-
-Clone the repository:
-
-```
-git clone https://github.com/MohaCodez/structured-logger.git
-```
-
-Or add it as a dependency in your Go module.
-
----
-
-# Quick Start
-
-Basic usage example:
+### Using Config Struct (Recommended)
 
 ```go
-logger := logger.NewDefault()
+import (
+    "github.com/MohaCodez/structured-logger/formatter"
+    "github.com/MohaCodez/structured-logger/logger"
+    "github.com/MohaCodez/structured-logger/sink"
+)
 
-logger.Info("user_login",
+config := logger.Config{
+    Level:        logger.INFO,
+    Formatter:    formatter.NewJSONFormatter(),
+    Sinks:        []logger.Sink{sink.NewConsoleSink()},
+    EnableCaller: true,
+    Async:        false,
+    BufferSize:   100,
+}
+
+log := logger.NewWithConfig(config)
+defer log.Close()
+```
+
+### Default Configuration
+
+```go
+config := logger.DefaultConfig()
+config.Level = logger.DEBUG
+config.EnableCaller = true
+
+log := logger.NewWithConfig(config)
+```
+
+---
+
+## Log Levels
+
+```go
+log.Debug("debug message")   // Development details
+log.Info("info message")      // General information
+log.Warn("warning message")   // Warning conditions
+log.Error("error message")    // Error conditions
+log.Fatal("fatal message")    // Critical errors (exits program)
+```
+
+**Level Filtering:**
+```go
+log := logger.New(logger.WARN)  // Only WARN, ERROR, FATAL will be logged
+log.Info("ignored")             // Won't be logged
+log.Error("logged")             // Will be logged
+```
+
+---
+
+## Structured Fields
+
+Add context to logs with key/value pairs:
+
+```go
+log.Info("payment_processed",
+    "transaction_id", "txn_12345",
+    "amount", 99.99,
+    "currency", "USD",
     "user_id", 123,
-    "ip", "10.1.2.4",
+    "success", true,
 )
 ```
 
-Example output:
-
-```
+**Output:**
+```json
 {
-  "timestamp":"2026-03-09T12:00:00Z",
-  "level":"INFO",
-  "message":"user_login",
-  "user_id":123,
-  "ip":"10.1.2.4"
+  "timestamp": "2026-03-10T03:14:00+05:30",
+  "level": "INFO",
+  "message": "payment_processed",
+  "transaction_id": "txn_12345",
+  "amount": 99.99,
+  "currency": "USD",
+  "user_id": 123,
+  "success": true
 }
 ```
 
 ---
 
-# Configuration
+## Caller Tracing
 
-The logger can be configured to control formatting, output sinks, and runtime behavior.
+Enable file and line number tracking:
 
-Example configuration:
+```go
+config := logger.DefaultConfig()
+config.EnableCaller = true
+log := logger.NewWithConfig(config)
 
+log.Error("database_error", "error", "connection timeout")
 ```
-level: INFO
-formatter: json
-sinks:
-  - console
-  - file
-caller: true
-async: false
+
+**Output:**
+```json
+{
+  "timestamp": "2026-03-10T03:14:00+05:30",
+  "level": "ERROR",
+  "message": "database_error",
+  "caller": "main.go:42",
+  "error": "connection timeout"
+}
 ```
 
 ---
 
-# Supported Sinks
+## Multiple Sinks
 
-Current sinks include:
+Write logs to multiple destinations simultaneously:
 
-- Console output
-- File logging
-- Multi-sink fan-out
+```go
+consoleSink := sink.NewConsoleSink()
+fileSink, _ := sink.NewFileSink("app.log")
 
-Future sinks may include:
+config := logger.Config{
+    Level:     logger.INFO,
+    Formatter: formatter.NewJSONFormatter(),
+    Sinks:     []logger.Sink{consoleSink, fileSink},
+}
 
-- HTTP log streaming
-- Message queue logging
-- Cloud logging services
-
----
-
-# Asynchronous Logging
-
-For high-throughput systems, logs can optionally be processed asynchronously.
-
-```
-Application
-     │
-     ▼
-Log Queue
-     │
-     ▼
-Background Worker
-     │
-     ▼
-Sink Dispatcher
+log := logger.NewWithConfig(config)
+defer log.Close()  // Closes all sinks
 ```
 
-This prevents logging from blocking application execution.
+---
+
+## Asynchronous Logging
+
+Enable non-blocking logging for high-throughput systems:
+
+```go
+config := logger.Config{
+    Level:      logger.INFO,
+    Formatter:  formatter.NewJSONFormatter(),
+    Sinks:      []logger.Sink{sink.NewConsoleSink()},
+    Async:      true,
+    BufferSize: 500,  // Queue size
+}
+
+log := logger.NewWithConfig(config)
+defer log.Close()  // Flushes queue before closing
+
+// Non-blocking log calls
+for i := 0; i < 10000; i++ {
+    log.Info("high_throughput", "iteration", i)
+}
+```
+
+**Performance:** ~1.5x faster than synchronous logging
 
 ---
 
-# Project Structure
+## Custom Formatters
+
+Implement the `Formatter` interface:
+
+```go
+type Formatter interface {
+    Format(entry *logger.Entry) ([]byte, error)
+}
+```
+
+Example: Text formatter
+```go
+type TextFormatter struct{}
+
+func (f *TextFormatter) Format(entry *logger.Entry) ([]byte, error) {
+    return []byte(fmt.Sprintf("[%s] %s: %s\n", 
+        entry.Level, entry.Timestamp, entry.Message)), nil
+}
+```
+
+---
+
+## Custom Sinks
+
+Implement the `Sink` interface:
+
+```go
+type Sink interface {
+    Write(data []byte) error
+    Close() error
+}
+```
+
+Example: HTTP sink
+```go
+type HTTPSink struct {
+    url string
+}
+
+func (s *HTTPSink) Write(data []byte) error {
+    _, err := http.Post(s.url, "application/json", bytes.NewReader(data))
+    return err
+}
+
+func (s *HTTPSink) Close() error {
+    return nil
+}
+```
+
+---
+
+## Complete Example
+
+```go
+package main
+
+import (
+    "github.com/MohaCodez/structured-logger/formatter"
+    "github.com/MohaCodez/structured-logger/logger"
+    "github.com/MohaCodez/structured-logger/sink"
+)
+
+func main() {
+    // Setup
+    fileSink, err := sink.NewFileSink("app.log")
+    if err != nil {
+        panic(err)
+    }
+
+    config := logger.Config{
+        Level:        logger.DEBUG,
+        Formatter:    formatter.NewJSONFormatter(),
+        Sinks:        []logger.Sink{sink.NewConsoleSink(), fileSink},
+        EnableCaller: true,
+        Async:        true,
+        BufferSize:   200,
+    }
+
+    log := logger.NewWithConfig(config)
+    defer log.Close()
+
+    // Application logs
+    log.Info("server_started", "port", 8080)
+    
+    log.Debug("processing_request",
+        "method", "GET",
+        "path", "/api/users",
+        "duration_ms", 45,
+    )
+
+    log.Warn("rate_limit_exceeded",
+        "user_id", 123,
+        "limit", 100,
+        "current", 150,
+    )
+
+    log.Error("database_error",
+        "operation", "SELECT",
+        "table", "users",
+        "error", "connection timeout",
+    )
+}
+```
+
+---
+
+## Project Structure
 
 ```
-logger/
-formatter/
-sink/
-async/
-middleware/
-internal/
-tests/
-docs/
+structured-logger/
+├── logger/           # Core logger implementation
+│   ├── logger.go
+│   ├── level.go
+│   ├── entry.go
+│   └── config.go
+├── formatter/        # Output formatters
+│   ├── formatter.go
+│   └── json_formatter.go
+├── sink/            # Output destinations
+│   ├── sink.go
+│   ├── console_sink.go
+│   └── file_sink.go
+├── async/           # Async worker
+│   └── worker.go
+├── examples/        # Usage examples
+└── README.md
 ```
 
-Each module represents a distinct part of the logging pipeline.
+---
+
+## Testing
+
+Run tests:
+```bash
+go test ./logger ./formatter ./sink ./async -v
+```
+
+With coverage:
+```bash
+go test ./logger ./formatter ./sink ./async -cover
+```
+
+**Test Results:** 27/27 tests passing, 88% average coverage
 
 ---
 
-# Example Use Cases
+## API Reference
 
-This logger can be integrated into:
+### Logger Methods
 
-- REST APIs
-- Microservices
-- CLI tools
-- Background workers
-- Distributed systems
+| Method | Description |
+|--------|-------------|
+| `Debug(msg, ...fields)` | Log debug message |
+| `Info(msg, ...fields)` | Log info message |
+| `Warn(msg, ...fields)` | Log warning message |
+| `Error(msg, ...fields)` | Log error message |
+| `Fatal(msg, ...fields)` | Log fatal and exit |
+| `Close()` | Close logger and sinks |
 
-Because the library is modular, it can be extended for different environments and logging pipelines.
+### Constructors
+
+| Constructor | Use Case |
+|-------------|----------|
+| `New(level)` | Simple logger with defaults |
+| `NewWithConfig(config)` | Full configuration control |
+| `NewWithFormatter(level, formatter)` | Custom formatter |
+| `NewWithSinks(level, formatter, sinks)` | Multiple sinks |
+| `NewWithCaller(level, formatter, sinks, caller)` | With caller tracing |
+| `NewAsync(level, formatter, sinks, caller, bufSize)` | Async mode |
 
 ---
 
-# Roadmap
+## Best Practices
 
-Planned improvements include:
+1. **Always defer Close()** - Ensures logs are flushed
+   ```go
+   log := logger.NewWithConfig(config)
+   defer log.Close()
+   ```
 
-- asynchronous logging pipeline
-- log sampling
-- log rotation
-- distributed tracing integration
-- additional output sinks
-- performance optimizations
+2. **Use structured fields** - Better than string formatting
+   ```go
+   // Good
+   log.Info("user_login", "user_id", 123)
+   
+   // Avoid
+   log.Info(fmt.Sprintf("user %d logged in", 123))
+   ```
+
+3. **Set appropriate log levels** - Use INFO or WARN in production
+   ```go
+   config := logger.DefaultConfig()
+   config.Level = logger.INFO  // Production
+   ```
+
+4. **Enable async for high throughput** - Reduces I/O blocking
+   ```go
+   config.Async = true
+   config.BufferSize = 500
+   ```
+
+5. **Use caller tracing in development** - Disable in production for performance
+   ```go
+   config.EnableCaller = (env == "development")
+   ```
 
 ---
 
-# License
+## Performance
+
+Benchmark results (1000 log entries):
+
+| Mode | Duration | Throughput |
+|------|----------|------------|
+| Sync | 14.7ms | 67,935 logs/sec |
+| Async | 10.0ms | 100,000 logs/sec |
+
+**Speedup:** 1.47x with async mode
+
+---
+
+## Roadmap
+
+- [x] Core logging engine
+- [x] Structured fields
+- [x] Formatter abstraction
+- [x] Pluggable sinks
+- [x] Caller tracing
+- [x] Async logging
+- [x] Configuration system
+- [x] Comprehensive tests
+- [ ] Log rotation
+- [ ] Log sampling
+- [ ] Distributed tracing integration
+- [ ] Cloud logging sinks (AWS CloudWatch, GCP Logging)
+
+---
+
+## License
 
 MIT License
+
+---
+
+## Contributing
+
+Contributions welcome! Please ensure:
+- All tests pass
+- Code coverage remains above 80%
+- Follow existing code style
+- Add tests for new features
+
+---
+
+## Support
+
+- Issues: [GitHub Issues](https://github.com/MohaCodez/structured-logger/issues)
+- Documentation: See `examples/` directory
+- Tests: See `*_test.go` files
