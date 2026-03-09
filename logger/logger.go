@@ -15,32 +15,45 @@ type Sink interface {
 }
 
 type Logger struct {
-	level     Level
-	formatter Formatter
-	sinks     []Sink
+	level        Level
+	formatter    Formatter
+	sinks        []Sink
+	enableCaller bool
 }
 
 func New(level Level) *Logger {
 	return &Logger{
-		level:     level,
-		formatter: &defaultFormatter{},
-		sinks:     []Sink{&defaultConsoleSink{}},
+		level:        level,
+		formatter:    &defaultFormatter{},
+		sinks:        []Sink{&defaultConsoleSink{}},
+		enableCaller: false,
 	}
 }
 
 func NewWithFormatter(level Level, formatter Formatter) *Logger {
 	return &Logger{
-		level:     level,
-		formatter: formatter,
-		sinks:     []Sink{&defaultConsoleSink{}},
+		level:        level,
+		formatter:    formatter,
+		sinks:        []Sink{&defaultConsoleSink{}},
+		enableCaller: false,
 	}
 }
 
 func NewWithSinks(level Level, formatter Formatter, sinks []Sink) *Logger {
 	return &Logger{
-		level:     level,
-		formatter: formatter,
-		sinks:     sinks,
+		level:        level,
+		formatter:    formatter,
+		sinks:        sinks,
+		enableCaller: false,
+	}
+}
+
+func NewWithCaller(level Level, formatter Formatter, sinks []Sink, enableCaller bool) *Logger {
+	return &Logger{
+		level:        level,
+		formatter:    formatter,
+		sinks:        sinks,
+		enableCaller: enableCaller,
 	}
 }
 
@@ -77,7 +90,7 @@ func (l *Logger) log(level Level, message string, keyValues ...interface{}) {
 	}
 
 	fields := parseFields(keyValues)
-	entry := newEntry(level, message, fields)
+	entry := newEntry(level, message, fields, l.enableCaller)
 	data, err := l.formatter.Format(entry)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to format log entry: %v\n", err)
