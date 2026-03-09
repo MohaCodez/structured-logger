@@ -1,24 +1,19 @@
 package logger
 
-import (
-	"encoding/json"
-	"time"
-)
+import "time"
 
 type Entry struct {
-	Timestamp string `json:"timestamp"`
-	Level     string `json:"level"`
-	Message   string `json:"message"`
+	Timestamp string
+	Level     string
+	Message   string
+	Fields    map[string]interface{}
 }
 
-func newEntry(level Level, message string) *Entry {
+func newEntry(level Level, message string, fields map[string]interface{}) *Entry {
 	return &Entry{
 		Timestamp: time.Now().Format(time.RFC3339),
 		Level:     level.String(),
 		Message:   message,
+		Fields:    fields,
 	}
-}
-
-func (e *Entry) ToJSON() ([]byte, error) {
-	return json.Marshal(e)
 }
