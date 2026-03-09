@@ -1,0 +1,4 @@
+{"environment":"production","level":"INFO","message":"application_started","timestamp":"2026-03-10T02:54:47+05:30","version":"1.0.0"}
+{"available_gb":5.2,"level":"WARN","message":"disk_space_low","threshold_gb":10,"timestamp":"2026-03-10T02:54:47+05:30"}
+{"amount":99.99,"error":"gateway timeout","level":"ERROR","message":"payment_processing_failed","timestamp":"2026-03-10T02:54:47+05:30","transaction_id":"txn_12345"}
+{"level":"INFO","message":"application_shutdown","timestamp":"2026-03-10T02:54:47+05:30"}

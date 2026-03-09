@@ -9,15 +9,22 @@ type Formatter interface {
 	Format(entry *Entry) ([]byte, error)
 }
 
+type Sink interface {
+	Write(data []byte) error
+	Close() error
+}
+
 type Logger struct {
 	level     Level
 	formatter Formatter
+	sinks     []Sink
 }
 
 func New(level Level) *Logger {
 	return &Logger{
 		level:     level,
 		formatter: &defaultFormatter{},
+		sinks:     []Sink{&defaultConsoleSink{}},
 	}
 }
 
@@ -25,7 +32,25 @@ func NewWithFormatter(level Level, formatter Formatter) *Logger {
 	return &Logger{
 		level:     level,
 		formatter: formatter,
+		sinks:     []Sink{&defaultConsoleSink{}},
 	}
+}
+
+func NewWithSinks(level Level, formatter Formatter, sinks []Sink) *Logger {
+	return &Logger{
+		level:     level,
+		formatter: formatter,
+		sinks:     sinks,
+	}
+}
+
+func (l *Logger) Close() error {
+	for _, sink := range l.sinks {
+		if err := sink.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type defaultFormatter struct{}
@@ -33,6 +58,17 @@ type defaultFormatter struct{}
 func (f *defaultFormatter) Format(entry *Entry) ([]byte, error) {
 	return []byte(fmt.Sprintf(`{"timestamp":"%s","level":"%s","message":"%s"}`, 
 		entry.Timestamp, entry.Level, entry.Message)), nil
+}
+
+type defaultConsoleSink struct{}
+
+func (s *defaultConsoleSink) Write(data []byte) error {
+	fmt.Println(string(data))
+	return nil
+}
+
+func (s *defaultConsoleSink) Close() error {
+	return nil
 }
 
 func (l *Logger) log(level Level, message string, keyValues ...interface{}) {
@@ -48,7 +84,11 @@ func (l *Logger) log(level Level, message string, keyValues ...interface{}) {
 		return
 	}
 
-	fmt.Println(string(data))
+	for _, sink := range l.sinks {
+		if err := sink.Write(data); err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write to sink: %v\n", err)
+		}
+	}
 }
 
 func parseFields(keyValues []interface{}) map[string]interface{} {
