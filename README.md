@@ -474,7 +474,7 @@ go test ./logger ./formatter ./sink ./async -cover
 
 ## Performance Benchmarks
 
-Benchmark results on Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz:
+Benchmark results on Intel Core i7 (9th Generation), Ubuntu 22.04 LTS, Go 1.25.7:
 
 | Operation | Time/op | Throughput |
 |-----------|---------|------------|
