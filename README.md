@@ -2,7 +2,7 @@
 
 A modular, plug-and-play structured logging library in Go featuring leveled logging, JSON output, caller tracing, and extensible output sinks.
 
-[![Tests](https://img.shields.io/badge/tests-36%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-41%20passing-brightgreen)]()
 [![Coverage](https://img.shields.io/badge/coverage-85%25-green)]()
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.18-blue)]()
 
@@ -468,27 +468,29 @@ With coverage:
 go test ./logger ./formatter ./sink ./async -cover
 ```
 
-**Test Results:** 36/36 tests passing, 85% average coverage
+**Test Results:** 41/41 tests passing, 85% average coverage
 
 ---
 
 ## Performance Benchmarks
 
-Benchmark results on Intel Core i7 (9th Generation), Ubuntu 22.04 LTS, Go 1.25.7:
+Benchmark results on Intel Core i7-9750H @ 2.60GHz, Ubuntu 22.04 LTS, Go 1.25.7:
 
-| Operation | Time/op | Throughput |
-|-----------|---------|------------|
-| Sync Logging | 2,078 ns | 481K logs/sec |
-| Async Logging | 2,046 ns | 489K logs/sec |
-| Structured Fields | 4,607 ns | 217K logs/sec |
-| Contextual Logging | 3,185 ns | 314K logs/sec |
-| Level Filtering | 1.7 ns | 577M ops/sec |
+| Operation | Time/op | Throughput | Memory/op | Allocs/op |
+|-----------|---------|------------|-----------|-----------|
+| Sync Logging | 2,144 ns | 466K logs/sec | 912 B | 17 |
+| Async Logging | 2,010 ns | 498K logs/sec | 928 B | 18 |
+| Structured Fields | 4,141 ns | 241K logs/sec | 1,745 B | 25 |
+| Contextual Logging | 3,292 ns | 304K logs/sec | 1,392 B | 22 |
+| Level Filtering | 1.9 ns | 526M ops/sec | 0 B | 0 |
 
 **Key Insights:**
 - Level filtering is essentially free (zero allocations)
-- Async mode provides ~1% better performance
-- Structured fields add ~2.5x overhead
-- Contextual logging adds ~53% overhead
+- Async mode provides ~6% better performance in high-throughput scenarios
+- Structured fields add ~93% overhead due to field processing
+- Contextual logging adds ~54% overhead for field inheritance
+
+The async advantage becomes more pronounced under I/O pressure, where non-blocking writes prevent caller delays.
 
 Run benchmarks:
 ```bash
@@ -519,10 +521,6 @@ See [BENCHMARKS.md](BENCHMARKS.md) for detailed analysis.
 |-------------|----------|
 | `New(level)` | Simple logger with defaults |
 | `NewWithConfig(config)` | Full configuration control |
-| `NewWithFormatter(level, formatter)` | Custom formatter |
-| `NewWithSinks(level, formatter, sinks)` | Multiple sinks |
-| `NewWithCaller(level, formatter, sinks, caller)` | With caller tracing |
-| `NewAsync(level, formatter, sinks, caller, bufSize)` | Async mode |
 
 ---
 
@@ -562,16 +560,59 @@ See [BENCHMARKS.md](BENCHMARKS.md) for detailed analysis.
 
 ---
 
-## Performance
+## Context Integration
 
-Benchmark results (1000 log entries):
+Store and retrieve loggers from context.Context for request-scoped logging:
 
-| Mode | Duration | Throughput |
-|------|----------|------------|
-| Sync | 14.7ms | 67,935 logs/sec |
-| Async | 10.0ms | 100,000 logs/sec |
+```go
+import (
+    "context"
+    "github.com/MohaCodez/structured-logger/logger"
+)
 
-**Speedup:** 1.47x with async mode
+// Store logger in context
+ctx = logger.WithContext(ctx, requestLog)
+
+// Retrieve logger from context
+log := logger.FromContext(ctx)
+log.Info("handling_request")
+```
+
+**Usage Pattern:**
+```go
+func handleRequest(ctx context.Context) {
+    log := logger.FromContext(ctx)
+    log.Info("processing_request")
+    
+    // Pass context to other functions
+    authenticateUser(ctx)
+}
+
+func authenticateUser(ctx context.Context) {
+    log := logger.FromContext(ctx)
+    log.Info("authenticating_user")
+}
+```
+
+---
+
+## Async Buffer Policies
+
+Control behavior when async buffer is full:
+
+```go
+config := logger.DefaultConfig()
+config.Async = true
+config.BufferSize = 100
+config.BufferFullPolicy = logger.BlockOnFull  // Default: blocks caller
+// config.BufferFullPolicy = logger.DropOnFull  // Alternative: drops logs
+
+log := logger.NewWithConfig(config)
+```
+
+**Policies:**
+- `BlockOnFull` (default): Provides backpressure, ensures no log loss
+- `DropOnFull`: Non-blocking, may drop logs under extreme load
 
 ---
 

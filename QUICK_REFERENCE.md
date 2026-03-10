@@ -164,7 +164,10 @@ func (t *testSink) Close() error {
 
 // In test
 sink := &testSink{}
-log := logger.NewWithSinks(logger.DEBUG, formatter, []logger.Sink{sink})
+config := logger.DefaultConfig()
+config.Level = logger.DEBUG
+config.Sinks = []logger.Sink{sink}
+log := logger.NewWithConfig(config)
 ```
 
 ## Constructors
@@ -173,10 +176,6 @@ log := logger.NewWithSinks(logger.DEBUG, formatter, []logger.Sink{sink})
 |-------------|------------|----------|
 | `New(level)` | level | Simple, defaults |
 | `NewWithConfig(config)` | config | Full control |
-| `NewWithFormatter(level, formatter)` | level, formatter | Custom format |
-| `NewWithSinks(level, formatter, sinks)` | level, formatter, sinks | Multiple outputs |
-| `NewWithCaller(level, formatter, sinks, caller)` | level, formatter, sinks, caller | With tracing |
-| `NewAsync(level, formatter, sinks, caller, bufSize)` | level, formatter, sinks, caller, bufSize | Async mode |
 
 ## Config Fields
 

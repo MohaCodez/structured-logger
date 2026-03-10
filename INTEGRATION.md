@@ -401,11 +401,10 @@ func (t *testSink) Close() error {
 func TestUserService(t *testing.T) {
     // Create logger with test sink
     sink := &testSink{}
-    log := logger.NewWithSinks(
-        logger.DEBUG,
-        &logger.DefaultFormatter{},
-        []logger.Sink{sink},
-    )
+    config := logger.DefaultConfig()
+    config.Level = logger.DEBUG
+    config.Sinks = []logger.Sink{sink}
+    log := logger.NewWithConfig(config)
     
     service := NewUserService(log)
     service.CreateUser("alice")

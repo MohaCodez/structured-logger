@@ -7,8 +7,10 @@ import (
 
 func main() {
 	// Create logger with JSON formatter
-	jsonFormatter := formatter.NewJSONFormatter()
-	log := logger.NewWithFormatter(logger.INFO, jsonFormatter)
+	config := logger.DefaultConfig()
+	config.Level = logger.INFO
+	config.Formatter = formatter.NewJSONFormatter()
+	log := logger.NewWithConfig(config)
 
 	log.Info("service_started",
 		"port", 8080,

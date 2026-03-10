@@ -14,13 +14,15 @@ func main() {
 	consoleSink := sink.NewConsoleSink()
 
 	// Create async logger with buffer size 100
-	log := logger.NewAsync(
-		logger.INFO,
-		jsonFormatter,
-		[]logger.Sink{consoleSink},
-		true,  // enable caller
-		100,   // buffer size
-	)
+	config := logger.Config{
+		Level:        logger.INFO,
+		Formatter:    jsonFormatter,
+		Sinks:        []logger.Sink{consoleSink},
+		EnableCaller: true,
+		Async:        true,
+		BufferSize:   100,
+	}
+	log := logger.NewWithConfig(config)
 	defer log.Close()
 
 	log.Info("async_logger_started")

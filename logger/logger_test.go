@@ -23,7 +23,10 @@ func (m *mockSink) Close() error {
 
 func TestLoggerLevelFiltering(t *testing.T) {
 	mock := &mockSink{}
-	log := NewWithSinks(WARN, &defaultFormatter{}, []Sink{mock})
+	config := DefaultConfig()
+	config.Level = WARN
+	config.Sinks = []Sink{mock}
+	log := NewWithConfig(config)
 
 	log.Debug("debug")
 	log.Info("info")
@@ -45,7 +48,10 @@ func TestLoggerLevelFiltering(t *testing.T) {
 
 func TestLoggerWithFields(t *testing.T) {
 	mock := &mockSink{}
-	log := NewWithSinks(INFO, &defaultFormatter{}, []Sink{mock})
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Sinks = []Sink{mock}
+	log := NewWithConfig(config)
 
 	log.Info("test", "key1", "value1", "key2", 123)
 
@@ -68,7 +74,10 @@ func TestLoggerWithFields(t *testing.T) {
 func TestLoggerMultipleSinks(t *testing.T) {
 	mock1 := &mockSink{}
 	mock2 := &mockSink{}
-	log := NewWithSinks(INFO, &defaultFormatter{}, []Sink{mock1, mock2})
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Sinks = []Sink{mock1, mock2}
+	log := NewWithConfig(config)
 
 	log.Info("test")
 
@@ -85,7 +94,12 @@ func TestLoggerWithCaller(t *testing.T) {
 	mock := &mockSink{}
 	// Use JSONFormatter which supports caller field
 	jsonFormatter := &jsonFormatterMock{}
-	log := NewWithCaller(INFO, jsonFormatter, []Sink{mock}, true)
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Formatter = jsonFormatter
+	config.Sinks = []Sink{mock}
+	config.EnableCaller = true
+	log := NewWithConfig(config)
 
 	log.Info("test")
 
@@ -124,7 +138,10 @@ func (f *jsonFormatterMock) Format(entry *Entry) ([]byte, error) {
 
 func TestLoggerClose(t *testing.T) {
 	mock := &mockSink{}
-	log := NewWithSinks(INFO, &defaultFormatter{}, []Sink{mock})
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Sinks = []Sink{mock}
+	log := NewWithConfig(config)
 
 	err := log.Close()
 	if err != nil {
@@ -134,7 +151,11 @@ func TestLoggerClose(t *testing.T) {
 
 func TestLoggerWith(t *testing.T) {
 	mock := &mockSink{}
-	baseLog := NewWithSinks(INFO, &jsonFormatterMock{}, []Sink{mock})
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Formatter = &jsonFormatterMock{}
+	config.Sinks = []Sink{mock}
+	baseLog := NewWithConfig(config)
 
 	// Create child logger with context fields
 	childLog := baseLog.With("request_id", "abc123", "user_id", 42)
@@ -156,7 +177,11 @@ func TestLoggerWith(t *testing.T) {
 
 func TestLoggerWithParentUnchanged(t *testing.T) {
 	mock := &mockSink{}
-	baseLog := NewWithSinks(INFO, &jsonFormatterMock{}, []Sink{mock})
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Formatter = &jsonFormatterMock{}
+	config.Sinks = []Sink{mock}
+	baseLog := NewWithConfig(config)
 
 	// Create child logger
 	childLog := baseLog.With("request_id", "abc123")
@@ -186,7 +211,11 @@ func TestLoggerWithParentUnchanged(t *testing.T) {
 
 func TestLoggerWithNested(t *testing.T) {
 	mock := &mockSink{}
-	baseLog := NewWithSinks(INFO, &jsonFormatterMock{}, []Sink{mock})
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Formatter = &jsonFormatterMock{}
+	config.Sinks = []Sink{mock}
+	baseLog := NewWithConfig(config)
 
 	// Create nested child loggers
 	serviceLog := baseLog.With("service", "auth")
@@ -209,7 +238,11 @@ func TestLoggerWithNested(t *testing.T) {
 
 func TestLoggerWithFieldOverride(t *testing.T) {
 	mock := &mockSink{}
-	baseLog := NewWithSinks(INFO, &jsonFormatterMock{}, []Sink{mock})
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Formatter = &jsonFormatterMock{}
+	config.Sinks = []Sink{mock}
+	baseLog := NewWithConfig(config)
 
 	// Create child with context field
 	childLog := baseLog.With("key", "context_value")
@@ -224,5 +257,97 @@ func TestLoggerWithFieldOverride(t *testing.T) {
 	// Call value should override context value
 	if !strings.Contains(mock.logs[0], "call_value") {
 		t.Errorf("call fields should override context fields, got: %s", mock.logs[0])
+	}
+}
+
+func TestFatalIsTestable(t *testing.T) {
+	mock := &mockSink{}
+	exitCalled := false
+	exitCode := 0
+
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Formatter = &jsonFormatterMock{}
+	config.Sinks = []Sink{mock}
+	config.ExitFunc = func(code int) {
+		exitCalled = true
+		exitCode = code
+	}
+	log := NewWithConfig(config)
+
+	log.Fatal("fatal_error", "error", "critical")
+
+	if !exitCalled {
+		t.Error("expected exitFunc to be called")
+	}
+
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+
+	if len(mock.logs) != 1 {
+		t.Fatalf("expected 1 log, got %d", len(mock.logs))
+	}
+
+	if !strings.Contains(mock.logs[0], "FATAL") {
+		t.Errorf("expected FATAL level in log, got: %s", mock.logs[0])
+	}
+}
+
+func TestOddFieldsHandledGracefully(t *testing.T) {
+	mock := &mockSink{}
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Formatter = &jsonFormatterMock{}
+	config.Sinks = []Sink{mock}
+	log := NewWithConfig(config)
+
+	// Pass odd number of fields
+	log.Info("test", "key1", "value1", "key2")
+
+	if len(mock.logs) != 1 {
+		t.Fatalf("expected 1 log, got %d", len(mock.logs))
+	}
+
+	logOutput := mock.logs[0]
+	if !strings.Contains(logOutput, "MISSING_VALUE") {
+		t.Errorf("expected MISSING_VALUE for unpaired key, got: %s", logOutput)
+	}
+
+	if !strings.Contains(logOutput, "key2") {
+		t.Errorf("expected key2 in output, got: %s", logOutput)
+	}
+}
+
+func TestCallerTracingAccuracy(t *testing.T) {
+	mock := &mockSink{}
+	config := DefaultConfig()
+	config.Level = INFO
+	config.Formatter = &jsonFormatterMock{}
+	config.Sinks = []Sink{mock}
+	config.EnableCaller = true
+	log := NewWithConfig(config)
+
+	// Direct logger call
+	log.Error("direct_call")
+
+	if len(mock.logs) != 1 {
+		t.Fatalf("expected 1 log, got %d", len(mock.logs))
+	}
+
+	if !strings.Contains(mock.logs[0], "logger_test.go") {
+		t.Errorf("expected caller to point to test file, got: %s", mock.logs[0])
+	}
+
+	// Child logger call
+	childLog := log.With("context", "test")
+	childLog.Error("child_call")
+
+	if len(mock.logs) != 2 {
+		t.Fatalf("expected 2 logs, got %d", len(mock.logs))
+	}
+
+	if !strings.Contains(mock.logs[1], "logger_test.go") {
+		t.Errorf("expected child logger caller to point to test file, got: %s", mock.logs[1])
 	}
 }

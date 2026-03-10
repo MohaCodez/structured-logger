@@ -20,11 +20,11 @@ func (n *noOpSink) Close() error {
 
 // BenchmarkSyncLogging measures synchronous logging performance
 func BenchmarkSyncLogging(b *testing.B) {
-	log := logger.NewWithSinks(
-		logger.INFO,
-		formatter.NewJSONFormatter(),
-		[]logger.Sink{&noOpSink{}},
-	)
+	config := logger.DefaultConfig()
+	config.Level = logger.INFO
+	config.Formatter = formatter.NewJSONFormatter()
+	config.Sinks = []logger.Sink{&noOpSink{}}
+	log := logger.NewWithConfig(config)
 	defer log.Close()
 
 	b.ResetTimer()
@@ -35,13 +35,13 @@ func BenchmarkSyncLogging(b *testing.B) {
 
 // BenchmarkAsyncLogging measures asynchronous logging performance
 func BenchmarkAsyncLogging(b *testing.B) {
-	log := logger.NewAsync(
-		logger.INFO,
-		formatter.NewJSONFormatter(),
-		[]logger.Sink{&noOpSink{}},
-		false,
-		1000,
-	)
+	config := logger.DefaultConfig()
+	config.Level = logger.INFO
+	config.Formatter = formatter.NewJSONFormatter()
+	config.Sinks = []logger.Sink{&noOpSink{}}
+	config.Async = true
+	config.BufferSize = 1000
+	log := logger.NewWithConfig(config)
 	defer log.Close()
 
 	b.ResetTimer()
@@ -52,11 +52,11 @@ func BenchmarkAsyncLogging(b *testing.B) {
 
 // BenchmarkStructuredFields measures overhead of structured fields
 func BenchmarkStructuredFields(b *testing.B) {
-	log := logger.NewWithSinks(
-		logger.INFO,
-		formatter.NewJSONFormatter(),
-		[]logger.Sink{&noOpSink{}},
-	)
+	config := logger.DefaultConfig()
+	config.Level = logger.INFO
+	config.Formatter = formatter.NewJSONFormatter()
+	config.Sinks = []logger.Sink{&noOpSink{}}
+	log := logger.NewWithConfig(config)
 	defer log.Close()
 
 	b.ResetTimer()
@@ -90,11 +90,11 @@ func BenchmarkJSONFormatting(b *testing.B) {
 
 // BenchmarkContextualLogging measures overhead of contextual logging
 func BenchmarkContextualLogging(b *testing.B) {
-	baseLog := logger.NewWithSinks(
-		logger.INFO,
-		formatter.NewJSONFormatter(),
-		[]logger.Sink{&noOpSink{}},
-	)
+	config := logger.DefaultConfig()
+	config.Level = logger.INFO
+	config.Formatter = formatter.NewJSONFormatter()
+	config.Sinks = []logger.Sink{&noOpSink{}}
+	baseLog := logger.NewWithConfig(config)
 	defer baseLog.Close()
 
 	// Create child logger with context
@@ -108,12 +108,12 @@ func BenchmarkContextualLogging(b *testing.B) {
 
 // BenchmarkWithCaller measures overhead of caller tracing
 func BenchmarkWithCaller(b *testing.B) {
-	log := logger.NewWithCaller(
-		logger.INFO,
-		formatter.NewJSONFormatter(),
-		[]logger.Sink{&noOpSink{}},
-		true,
-	)
+	config := logger.DefaultConfig()
+	config.Level = logger.INFO
+	config.Formatter = formatter.NewJSONFormatter()
+	config.Sinks = []logger.Sink{&noOpSink{}}
+	config.EnableCaller = true
+	log := logger.NewWithConfig(config)
 	defer log.Close()
 
 	b.ResetTimer()
@@ -124,11 +124,11 @@ func BenchmarkWithCaller(b *testing.B) {
 
 // BenchmarkLevelFiltering measures level filtering performance
 func BenchmarkLevelFiltering(b *testing.B) {
-	log := logger.NewWithSinks(
-		logger.ERROR, // Set high threshold
-		formatter.NewJSONFormatter(),
-		[]logger.Sink{&noOpSink{}},
-	)
+	config := logger.DefaultConfig()
+	config.Level = logger.ERROR // Set high threshold
+	config.Formatter = formatter.NewJSONFormatter()
+	config.Sinks = []logger.Sink{&noOpSink{}}
+	log := logger.NewWithConfig(config)
 	defer log.Close()
 
 	b.ResetTimer()
@@ -139,11 +139,11 @@ func BenchmarkLevelFiltering(b *testing.B) {
 
 // BenchmarkNestedContextualLogging measures nested child logger overhead
 func BenchmarkNestedContextualLogging(b *testing.B) {
-	baseLog := logger.NewWithSinks(
-		logger.INFO,
-		formatter.NewJSONFormatter(),
-		[]logger.Sink{&noOpSink{}},
-	)
+	config := logger.DefaultConfig()
+	config.Level = logger.INFO
+	config.Formatter = formatter.NewJSONFormatter()
+	config.Sinks = []logger.Sink{&noOpSink{}}
+	baseLog := logger.NewWithConfig(config)
 	defer baseLog.Close()
 
 	serviceLog := baseLog.With("service", "api")

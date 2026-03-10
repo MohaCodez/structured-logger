@@ -17,67 +17,20 @@ type Sink interface {
 }
 
 type Logger struct {
-	level         Level
-	formatter     Formatter
-	sinks         []Sink
-	enableCaller  bool
-	asyncWorker   *async.Worker
-	contextFields map[string]interface{}
+	level            Level
+	formatter        Formatter
+	sinks            []Sink
+	enableCaller     bool
+	asyncWorker      *async.Worker
+	contextFields    map[string]interface{}
+	exitFunc         func(int)
+	sinkErrorHandler func(error)
 }
 
 func New(level Level) *Logger {
-	return &Logger{
-		level:         level,
-		formatter:     &defaultFormatter{},
-		sinks:         []Sink{&defaultConsoleSink{}},
-		enableCaller:  false,
-		asyncWorker:   nil,
-		contextFields: make(map[string]interface{}),
-	}
-}
-
-func NewWithFormatter(level Level, formatter Formatter) *Logger {
-	return &Logger{
-		level:         level,
-		formatter:     formatter,
-		sinks:         []Sink{&defaultConsoleSink{}},
-		enableCaller:  false,
-		asyncWorker:   nil,
-		contextFields: make(map[string]interface{}),
-	}
-}
-
-func NewWithSinks(level Level, formatter Formatter, sinks []Sink) *Logger {
-	return &Logger{
-		level:         level,
-		formatter:     formatter,
-		sinks:         sinks,
-		enableCaller:  false,
-		asyncWorker:   nil,
-		contextFields: make(map[string]interface{}),
-	}
-}
-
-func NewWithCaller(level Level, formatter Formatter, sinks []Sink, enableCaller bool) *Logger {
-	return &Logger{
-		level:         level,
-		formatter:     formatter,
-		sinks:         sinks,
-		enableCaller:  enableCaller,
-		asyncWorker:   nil,
-		contextFields: make(map[string]interface{}),
-	}
-}
-
-func NewAsync(level Level, formatter Formatter, sinks []Sink, enableCaller bool, bufferSize int) *Logger {
-	return &Logger{
-		level:         level,
-		formatter:     formatter,
-		sinks:         sinks,
-		enableCaller:  enableCaller,
-		asyncWorker:   async.NewWorker(bufferSize),
-		contextFields: make(map[string]interface{}),
-	}
+	config := DefaultConfig()
+	config.Level = level
+	return NewWithConfig(config)
 }
 
 func (l *Logger) Close() error {
@@ -108,12 +61,14 @@ func (l *Logger) With(keyValues ...interface{}) *Logger {
 	
 	// Return new logger with merged context
 	return &Logger{
-		level:         l.level,
-		formatter:     l.formatter,
-		sinks:         l.sinks,
-		enableCaller:  l.enableCaller,
-		asyncWorker:   l.asyncWorker,
-		contextFields: newContextFields,
+		level:            l.level,
+		formatter:        l.formatter,
+		sinks:            l.sinks,
+		enableCaller:     l.enableCaller,
+		asyncWorker:      l.asyncWorker,
+		contextFields:    newContextFields,
+		exitFunc:         l.exitFunc,
+		sinkErrorHandler: l.sinkErrorHandler,
 	}
 }
 
@@ -169,7 +124,7 @@ func (l *Logger) log(level Level, message string, keyValues ...interface{}) {
 		// Sync mode: write immediately
 		for _, sink := range l.sinks {
 			if err := sink.Write(data); err != nil {
-				fmt.Fprintf(os.Stderr, "failed to write to sink: %v\n", err)
+				l.sinkErrorHandler(err)
 			}
 		}
 	}
@@ -179,8 +134,8 @@ func parseFields(keyValues []interface{}) map[string]interface{} {
 	fields := make(map[string]interface{})
 	
 	if len(keyValues)%2 != 0 {
-		fmt.Fprintf(os.Stderr, "warning: uneven number of key/value pairs, ignoring last element\n")
-		keyValues = keyValues[:len(keyValues)-1]
+		fmt.Fprintf(os.Stderr, "structured-logger: odd number of fields passed to log call, last key has no value\n")
+		keyValues = append(keyValues, "MISSING_VALUE")
 	}
 
 	for i := 0; i < len(keyValues); i += 2 {
@@ -213,5 +168,6 @@ func (l *Logger) Error(message string, keyValues ...interface{}) {
 
 func (l *Logger) Fatal(message string, keyValues ...interface{}) {
 	l.log(FATAL, message, keyValues...)
-	os.Exit(1)
+	l.Close()
+	l.exitFunc(1)
 }

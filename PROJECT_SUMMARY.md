@@ -10,7 +10,7 @@ A complete, modular structured logging library built incrementally through 9 pha
 
 - **Lines of Code**: ~1,500
 - **Test Coverage**: 85% average
-- **Tests**: 36 passing
+- **Tests**: 41 passing
 - **Benchmarks**: 8 performance benchmarks
 - **Packages**: 5 (logger, formatter, sink, async, benchmarks)
 - **Examples**: 10 complete examples

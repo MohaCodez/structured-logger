@@ -19,8 +19,11 @@ func main() {
 	defer fileSink.Close()
 
 	// Create logger with multiple sinks
-	sinks := []logger.Sink{consoleSink, fileSink}
-	log := logger.NewWithSinks(logger.INFO, jsonFormatter, sinks)
+	config := logger.DefaultConfig()
+	config.Level = logger.INFO
+	config.Formatter = jsonFormatter
+	config.Sinks = []logger.Sink{consoleSink, fileSink}
+	log := logger.NewWithConfig(config)
 	defer log.Close()
 
 	log.Info("application_started",
