@@ -12,12 +12,13 @@ func main() {
 	consoleSink := sink.NewConsoleSink()
 
 	// Create logger with caller tracing enabled
-	log := logger.NewWithCaller(
-		logger.DEBUG,
-		jsonFormatter,
-		[]logger.Sink{consoleSink},
-		true, // enable caller
-	)
+	config := logger.DefaultConfig()
+	config.Level = logger.DEBUG
+	config.Formatter = jsonFormatter
+	config.Sinks = []logger.Sink{consoleSink}
+	config.EnableCaller = true
+
+	log := logger.NewWithConfig(config)
 	defer log.Close()
 
 	log.Info("application_started",
@@ -49,10 +50,12 @@ func handleError() {
 func getLogger() *logger.Logger {
 	jsonFormatter := formatter.NewJSONFormatter()
 	consoleSink := sink.NewConsoleSink()
-	return logger.NewWithCaller(
-		logger.DEBUG,
-		jsonFormatter,
-		[]logger.Sink{consoleSink},
-		true,
-	)
+	
+	config := logger.DefaultConfig()
+	config.Level = logger.DEBUG
+	config.Formatter = jsonFormatter
+	config.Sinks = []logger.Sink{consoleSink}
+	config.EnableCaller = true
+	
+	return logger.NewWithConfig(config)
 }
